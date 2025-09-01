@@ -1,0 +1,51 @@
+  
+{
+    "sample_resumes": [
+        {
+            "id": 1,
+            "name": "Rahul Makwana",
+            "email": "rahul.mak2216@gmail.com",
+            "phone": "+91-8591106868",
+            "location": "Navi Mumbai, Maharashtra",
+            "experience_years": 2,
+            "skills": {
+                "programming_languages": ["Python", "Java", "JavaScript", "TypeScript", "C", "C++"],
+                "web_technologies": ["React", "HTML5", "CSS3", "FastAPI", "Flask"],
+                "databases": ["MongoDB Atlas", "SQL", "MySQL"],
+                "ai_ml": ["Machine Learning", "Deep Learning", "TensorFlow", "PyTorch", "Scikit-learn"],
+                "cloud_platforms": ["IBM Cloud"],
+                "tools": ["Git", "GitHub", "VS Code", "Postman"]
+            },
+            "education": ["BTech in Computer Engineering", "Minor in Artificial Intelligence"]
+        }
+    ],
+    "sample_job_descriptions": [
+        {
+            "id": 1,
+            "title": "AI/ML Engineer",
+            "company": "TechCorp Solutions",
+            "description": "We are seeking an experienced AI/ML Engineer to join our team. The ideal candidate will have strong experience in Python, machine learning frameworks like TensorFlow and PyTorch, and cloud deployment. Responsibilities include developing ML models, working with large datasets, and deploying AI solutions at scale.",
+            "required_skills": ["Python", "Machine Learning", "TensorFlow", "PyTorch", "AWS", "Docker"],
+            "required_experience": 2,
+            "education_requirements": ["Bachelor's degree in Computer Science or related field"]
+        },
+        {
+            "id": 2,
+            "title": "Full Stack Developer",
+            "company": "WebTech Inc",
+            "description": "Looking for a Full Stack Developer with experience in React, Node.js, and modern web technologies. Must have experience with REST APIs, databases, and version control systems.",
+            "required_skills": ["JavaScript", "React", "Node.js", "MongoDB", "REST APIs", "Git"],
+            "required_experience": 3,
+            "education_requirements": ["Bachelor's or Master's in Computer Science"]
+        },
+        {
+            "id": 3,
+            "title": "Data Scientist",
+            "company": "DataCorp Analytics",
+            "description": "Seeking a Data Scientist with strong analytical skills and experience in Python, R, machine learning, and statistical analysis. Will work on predictive modeling and data visualization projects.",
+            "required_skills": ["Python", "R", "Machine Learning", "Pandas", "NumPy", "Matplotlib", "SQL"],
+            "required_experience": 4,
+            "education_requirements": ["Master's degree in Statistics, Mathematics, or Computer Science"]
+        }
+    ]
+}

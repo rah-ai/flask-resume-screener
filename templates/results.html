@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+
+{% block title %}Match Results - AI Resume Screener{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Match Results</h1>
+            <p class="text-gray-600">Candidate-Job Matching Analysis</p>
+        </div>
+        <div class="flex space-x-4">
+            <button onclick="window.history.back()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors">
+                <i class="fas fa-arrow-left mr-2"></i>Back
+            </button>
+            {% if job %}
+            <button id="exportBtn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                <i class="fas fa-download mr-2"></i>Export CSV
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if job %}
+<!-- Job Information Card -->
+<div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+    <div class="flex items-center mb-4">
+        <i class="fas fa-briefcase text-3xl text-blue-500 mr-4"></i>
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800">{{ job.title }}</h2>
+            <p class="text-lg text-gray-600">{{ job.company }}</p>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div class="text-center p-4 bg-blue-50 rounded-lg">
+            <i class="fas fa-users text-2xl text-blue-500 mb-2"></i>
+            <div class="text-2xl font-bold text-blue-600">{{ matches|length }}</div>
+            <div class="text-sm text-gray-600">Candidates Found</div>
+        </div>
+        <div class="text-center p-4 bg-green-50 rounded-lg">
+            <i class="fas fa-star text-2xl text-green-500 mb-2"></i>
+            <div class="text-2xl font-bold text-green-600" id="bestScore">
+                {% if matches and matches|length > 0 %}
+                    {{ "%.1f"|format(matches[0].match_result.overall_score) }}%
+                {% else %}
+                    0%
+                {% endif %}
+            </div>
+            <div class="text-sm text-gray-600">Best Match</div>
+        </div>
+        <div class="text-center p-4 bg-purple-50 rounded-lg">
+            <i class="fas fa-clock text-2xl text-purple-500 mb-2"></i>
+            <div class="text-2xl font-bold text-purple-600">{{ job.required_experience }}</div>
+            <div class="text-sm text-gray-600">Years Required</div>
+        </div>
+    </div>
+    
+    <div class="border-t pt-4">
+        <h3 class="font-semibold text-gray-800 mb-2">Required Skills:</h3>
+        <div class="flex flex-wrap gap-2">
+            {% for skill in job.required_skills %}
+            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">{{ skill }}</span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Store job ID for JavaScript -->
+<input type="hidden" id="jobId" value="{{ job.id }}">
+{% endif %}
+
+<!-- Filters and Search -->
+<div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+    <div class="flex flex-wrap items-center gap-4">
+        <div class="flex-1 min-w-64">
+            <input type="text" id="searchInput" placeholder="Search candidates..." 
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <select id="scoreFilter" class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">All Scores</option>
+            <option value="80">80%+ (Excellent)</option>
+            <option value="60">60%+ (Good)</option>
+            <option value="40">40%+ (Fair)</option>
+        </select>
+        <select id="experienceFilter" class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">All Experience</option>
+            <option value="0">Entry Level (0-2 years)</option>
+            <option value="3">Mid Level (3-5 years)</option>
+            <option value="6">Senior Level (6+ years)</option>
+        </select>
+    </div>
+</div>
+
+<!-- Results Grid -->
+<div id="resultsContainer">
+    {% if matches and matches|length > 0 %}
+        <div class="space-y-6" id="candidatesList">
+            {% for match in matches %}
+            <div class="candidate-card bg-white rounded-lg shadow-lg p-6 card-hover" 
+                 data-score="{{ match.match_result.overall_score }}" 
+                 data-experience="{{ match.candidate.experience_years }}"
+                 data-name="{{ match.candidate.name|lower }}"
+                 data-email="{{ match.candidate.email|lower if match.candidate.email else '' }}"
+                 data-candidate-id="{{ match.candidate.id }}">
+                
+                <!-- Candidate Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex-1">
+                        <div class="flex items-center mb-2">
+                            <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                                {{ match.candidate.name[0]|upper if match.candidate.name else 'C' }}
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">{{ match.candidate.name }}</h3>
+                                <p class="text-gray-600">{{ match.candidate.email or 'No email provided' }}</p>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-4 text-sm text-gray-500">
+                            {% if match.candidate.phone %}
+                            <span><i class="fas fa-phone mr-1"></i>{{ match.candidate.phone }}</span>
+                            {% endif %}
+                            {% if match.candidate.location %}
+                            <span><i class="fas fa-map-marker-alt mr-1"></i>{{ match.candidate.location }}</span>
+                            {% endif %}
+                            <span><i class="fas fa-briefcase mr-1"></i>{{ match.candidate.experience_years }} years experience</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Overall Score -->
+                    <div class="text-right">
+                        <div class="text-4xl font-bold mb-1
+                                    {% if match.match_result.overall_score >= 80 %}text-green-500
+                                    {% elif match.match_result.overall_score >= 60 %}text-yellow-500
+                                    {% else %}text-red-500{% endif %}">
+                            {{ "%.1f"|format(match.match_result.overall_score) }}%
+                        </div>
+                        <div class="text-sm text-gray-500">Overall Match</div>
+                        <div class="mt-2">
+                            <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full
+                                       {% if match.match_result.overall_score >= 80 %}bg-green-100 text-green-800
+                                       {% elif match.match_result.overall_score >= 60 %}bg-yellow-100 text-yellow-800
+                                       {% else %}bg-red-100 text-red-800{% endif %}">
+                                {% if match.match_result.overall_score >= 80 %}Excellent Match
+                                {% elif match.match_result.overall_score >= 60 %}Good Match
+                                {% else %}Fair Match{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Score Breakdown -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="text-center p-3 bg-blue-50 rounded-lg">
+                        <div class="text-2xl font-bold text-blue-600">{{ "%.0f"|format(match.match_result.skill_match.score * 100) }}%</div>
+                        <div class="text-xs text-gray-600">Skills Match</div>
+                        <div class="text-xs text-blue-500 mt-1">Weight: 40%</div>
+                    </div>
+                    <div class="text-center p-3 bg-purple-50 rounded-lg">
+                        <div class="text-2xl font-bold text-purple-600">{{ "%.0f"|format(match.match_result.semantic_score) }}%</div>
+                        <div class="text-xs text-gray-600">Semantic</div>
+                        <div class="text-xs text-purple-500 mt-1">Weight: 30%</div>
+                    </div>
+                    <div class="text-center p-3 bg-orange-50 rounded-lg">
+                        <div class="text-2xl font-bold text-orange-600">{{ "%.0f"|format(match.match_result.experience_score) }}%</div>
+                        <div class="text-xs text-gray-600">Experience</div>
+                        <div class="text-xs text-orange-500 mt-1">Weight: 20%</div>
+                    </div>
+                    <div class="text-center p-3 bg-teal-50 rounded-lg">
+                        <div class="text-2xl font-bold text-teal-600">{{ "%.0f"|format(match.match_result.education_score) }}%</div>
+                        <div class="text-xs text-gray-600">Education</div>
+                        <div class="text-xs text-teal-500 mt-1">Weight: 10%</div>
+                    </div>
+                </div>
+                
+                <!-- Skills Analysis -->
+                <div class="border-t pt-4">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <!-- Matched Skills -->
+                        <div>
+                            <h4 class="flex items-center font-semibold text-green-700 mb-3">
+                                <i class="fas fa-check-circle mr-2"></i>
+                                Matched Skills ({{ match.match_result.skill_match.matched_skills|length }})
+                            </h4>
+                            <div class="flex flex-wrap gap-2">
+                                {% if match.match_result.skill_match.matched_skills %}
+                                    {% for skill in match.match_result.skill_match.matched_skills %}
+                                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded text-sm">
+                                        <i class="fas fa-check mr-1"></i>{{ skill }}
+                                    </span>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-gray-500 text-sm italic">No matching skills found</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Missing Skills -->
+                        <div>
+                            <h4 class="flex items-center font-semibold text-red-700 mb-3">
+                                <i class="fas fa-times-circle mr-2"></i>
+                                Missing Skills ({{ match.match_result.skill_match.missing_skills|length }})
+                            </h4>
+                            <div class="flex flex-wrap gap-2">
+                                {% if match.match_result.skill_match.missing_skills %}
+                                    {% for skill in match.match_result.skill_match.missing_skills %}
+                                    <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-sm">
+                                        <i class="fas fa-times mr-1"></i>{{ skill }}
+                                    </span>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-green-600 text-sm italic">All required skills present!</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="border-t pt-4 mt-4 flex justify-end space-x-3">
+                    <button class="view-details-btn px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors" 
+                            data-candidate-id="{{ match.candidate.id }}" 
+                            data-candidate-name="{{ match.candidate.name }}">
+                        <i class="fas fa-eye mr-1"></i>View Details
+                    </button>
+                    {% if match.candidate.email %}
+                    <button class="contact-btn px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors" 
+                            data-email="{{ match.candidate.email }}">
+                        <i class="fas fa-envelope mr-1"></i>Contact
+                    </button>
+                    {% else %}
+                    <button class="px-4 py-2 bg-gray-400 text-white rounded-md cursor-not-allowed" disabled>
+                        <i class="fas fa-envelope mr-1"></i>No Email
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+    {% else %}
+        <!-- No Results -->
+        <div class="bg-white rounded-lg shadow-lg p-12 text-center">
+            <i class="fas fa-search text-6xl text-gray-300 mb-6"></i>
+            <h3 class="text-2xl font-bold text-gray-700 mb-4">No Candidates Found</h3>
+            <p class="text-gray-500 mb-6">No candidates match this job description yet.</p>
+            <a href="/" class="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors">
+                <i class="fas fa-plus mr-2"></i>Upload More Resumes
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Candidate Details Modal -->
+<div id="candidateModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-2xl font-bold text-gray-800">Candidate Details</h3>
+            <button id="closeModalBtn" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+        </div>
+        <div id="candidateDetails">
+            <div class="text-center py-8">
+                <div class="spinner mb-4"></div>
+                <p class="text-gray-600">Loading candidate details...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get job ID from hidden input
+    var jobIdElement = document.getElementById('jobId');
+    var currentJobId = jobIdElement ? jobIdElement.value : null;
+    
+    // Export button functionality
+    var exportBtn = document.getElementById('exportBtn');
+    if (exportBtn && currentJobId) {
+        exportBtn.addEventListener('click', function() {
+            window.location.href = '/download_results/' + currentJobId;
+        });
+    }
+    
+    // Search functionality
+    var searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            filterCandidates();
+        });
+    }
+    
+    // Score filter
+    var scoreFilter = document.getElementById('scoreFilter');
+    if (scoreFilter) {
+        scoreFilter.addEventListener('change', function() {
+            filterCandidates();
+        });
+    }
+    
+    // Experience filter
+    var experienceFilter = document.getElementById('experienceFilter');
+    if (experienceFilter) {
+        experienceFilter.addEventListener('change', function() {
+            filterCandidates();
+        });
+    }
+    
+    // View details buttons
+    var viewDetailsBtns = document.querySelectorAll('.view-details-btn');
+    for (var i = 0; i < viewDetailsBtns.length; i++) {
+        viewDetailsBtns[i].addEventListener('click', function() {
+            var candidateId = this.getAttribute('data-candidate-id');
+            var candidateName = this.getAttribute('data-candidate-name');
+            showCandidateModal(candidateId, candidateName);
+        });
+    }
+    
+    // Contact buttons
+    var contactBtns = document.querySelectorAll('.contact-btn');
+    for (var i = 0; i < contactBtns.length; i++) {
+        contactBtns[i].addEventListener('click', function() {
+            var email = this.getAttribute('data-email');
+            openEmailClient(email);
+        });
+    }
+    
+    // Close modal button
+    var closeModalBtn = document.getElementById('closeModalBtn');
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', function() {
+            hideModal();
+        });
+    }
+    
+    // Close modal on outside click
+    var modal = document.getElementById('candidateModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                hideModal();
+            }
+        });
+    }
+});
+
+function filterCandidates() {
+    var searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    var scoreFilterValue = document.getElementById('scoreFilter').value;
+    var experienceFilterValue = document.getElementById('experienceFilter').value;
+    
+    var candidates = document.querySelectorAll('.candidate-card');
+    var visibleCount = 0;
+    
+    for (var i = 0; i < candidates.length; i++) {
+        var card = candidates[i];
+        var name = card.getAttribute('data-name') || '';
+        var email = card.getAttribute('data-email') || '';
+        var score = parseFloat(card.getAttribute('data-score')) || 0;
+        var experience = parseInt(card.getAttribute('data-experience')) || 0;
+        
+        var show = true;
+        
+        // Search filter
+        if (searchTerm && name.indexOf(searchTerm) === -1 && email.indexOf(searchTerm) === -1) {
+            show = false;
+        }
+        
+        // Score filter
+        if (scoreFilterValue && score < parseInt(scoreFilterValue)) {
+            show = false;
+        }
+        
+        // Experience filter
+        if (experienceFilterValue) {
+            var expFilter = parseInt(experienceFilterValue);
+            if (expFilter === 0 && experience > 2) show = false;
+            if (expFilter === 3 && (experience < 3 || experience > 5)) show = false;
+            if (expFilter === 6 && experience < 6) show = false;
+        }
+        
+        // Show/hide card
+        card.style.display = show ? 'block' : 'none';
+        if (show) {
+            visibleCount++;
+        }
+    }
+    
+    console.log('Showing ' + visibleCount + ' candidates');
+}
+
+function showCandidateModal(candidateId, candidateName) {
+    var modal = document.getElementById('candidateModal');
+    var detailsDiv = document.getElementById('candidateDetails');
+    
+    if (!modal || !detailsDiv) return;
+    
+    modal.classList.remove('hidden');
+    
+    // Find candidate data
+    var candidateCard = document.querySelector('[data-candidate-id="' + candidateId + '"]');
+    if (candidateCard) {
+        var name = candidateName || 'Unknown';
+        var email = candidateCard.getAttribute('data-email') || 'No email';
+        var experience = candidateCard.getAttribute('data-experience') || '0';
+        var score = candidateCard.getAttribute('data-score') || '0';
+        
+        var emailButton = '';
+        if (email && email !== 'no email' && email !== '' && email !== 'no email provided') {
+            emailButton = '<button onclick="openEmailClient(\'' + email + '\')" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"><i class="fas fa-envelope mr-1"></i> Contact</button>';
+        }
+        
+        detailsDiv.innerHTML = 
+            '<div class="space-y-6">' +
+                '<div class="border-b pb-4">' +
+                    '<h4 class="text-lg font-semibold text-gray-800 mb-3">Candidate Information</h4>' +
+                    '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">' +
+                        '<div><p class="text-sm text-gray-600">Name</p><p class="font-medium">' + name + '</p></div>' +
+                        '<div><p class="text-sm text-gray-600">Email</p><p class="font-medium">' + email + '</p></div>' +
+                        '<div><p class="text-sm text-gray-600">Experience</p><p class="font-medium">' + experience + ' years</p></div>' +
+                        '<div><p class="text-sm text-gray-600">Match Score</p><p class="font-medium text-blue-600">' + parseFloat(score).toFixed(1) + '%</p></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="flex justify-end space-x-3">' +
+                    '<button onclick="hideModal()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600">Close</button>' +
+                    emailButton +
+                '</div>' +
+            '</div>';
+    }
+}
+
+function hideModal() {
+    var modal = document.getElementById('candidateModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+function openEmailClient(email) {
+    if (email && email !== 'No email provided' && email !== 'no email' && email !== '') {
+        var subject = encodeURIComponent('Regarding Job Opportunity');
+        var body = encodeURIComponent('Hi,\n\nI would like to discuss a potential job opportunity with you.\n\nBest regards,');
+        window.location.href = 'mailto:' + email + '?subject=' + subject + '&body=' + body;
+    } else {
+        alert('No email address available for this candidate.');
+    }
+}
+</script>
+{% endblock %}
