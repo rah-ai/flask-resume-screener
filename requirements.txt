@@ -1,8 +1,12 @@
 Flask==2.3.3
 gunicorn==21.2.0
 python-docx==0.8.11
+
+# Torch CPU-only wheels (works on Render)
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.5.1
+
+# Hugging Face stack (force prebuilt versions)
 transformers==4.44.0
 sentence-transformers==2.7.0
-tokenizers<0.20,>=0.19
+tokenizers==0.19.1
