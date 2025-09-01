@@ -7,3 +7,12 @@ python-docx==0.8.11
 pandas==1.5.3
 numpy==1.24.3
 requests==2.31.0
+
+# Force compatible wheels
+blis==0.7.10
+catalogue==2.0.10
+cymem==2.0.8
+murmurhash==1.0.10
+preshed==3.0.9
+thinc==8.1.10
+srsly==2.4.8
