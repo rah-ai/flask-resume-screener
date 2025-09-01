@@ -67,11 +67,18 @@
     </div>
 </div>
 
-<!-- Store job ID for JavaScript -->
+<!-- Job Information Card -->
+<div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+    <!-- ... all the job info content ... -->
+</div>
+
+<!-- ADD IT HERE -->
+{% if job %}
 <input type="hidden" id="jobId" value="{{ job.id }}">
 {% endif %}
 
 <!-- Filters and Search -->
+<div class="bg-white rounded-lg shadow-lg p-6 mb-6">
 <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
     <div class="flex flex-wrap items-center gap-4">
         <div class="flex-1 min-w-64">

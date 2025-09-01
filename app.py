@@ -1,4 +1,3 @@
-  
 from flask import Flask, render_template, request, jsonify, send_file
 import os
 import json
@@ -12,7 +11,10 @@ from utils.resume_parser import ResumeParser
 from utils.skill_extractor import SkillExtractor
 from utils.matcher import JobMatcher
 
-app = Flask(__name__)
+# ------------------------
+# Flask App Setup
+# ------------------------
+app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -25,15 +27,19 @@ resume_parser = ResumeParser()
 skill_extractor = SkillExtractor()
 job_matcher = JobMatcher()
 
+
+# ------------------------
+# Helper Functions
+# ------------------------
 def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 def init_db():
     """Initialize SQLite database"""
     conn = sqlite3.connect('database/candidates.db')
     cursor = conn.cursor()
-    
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS candidates (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,7 +55,7 @@ def init_db():
             raw_text TEXT
         )
     ''')
-    
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS job_descriptions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +68,7 @@ def init_db():
             created_at TIMESTAMP
         )
     ''')
-    
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS matches (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,48 +86,53 @@ def init_db():
             FOREIGN KEY (job_id) REFERENCES job_descriptions (id)
         )
     ''')
-    
+
     conn.commit()
     conn.close()
 
+
+# ------------------------
+# Routes
+# ------------------------
 @app.route('/')
 def index():
     return render_template('index.html')
+
 
 @app.route('/upload_resume', methods=['POST'])
 def upload_resume():
     if 'resume' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
-    
+
     file = request.files['resume']
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
-    
+
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_')
         filename = timestamp + filename
-        
+
         # Ensure upload directory exists
         resume_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'resumes')
         os.makedirs(resume_dir, exist_ok=True)
-        
+
         file_path = os.path.join(resume_dir, filename)
         file.save(file_path)
-        
+
         try:
             # Parse resume
             file_extension = filename.rsplit('.', 1)[1].lower()
             parsed_data = resume_parser.parse_resume(file_path, file_extension)
-            
+
             # Extract skills
             skills = skill_extractor.extract_all_skills(parsed_data['raw_text'])
             parsed_data['skills'] = skills
-            
+
             # Save to database
             conn = sqlite3.connect('database/candidates.db')
             cursor = conn.cursor()
-            
+
             cursor.execute('''
                 INSERT INTO candidates 
                 (name, email, phone, location, experience_years, skills, education, resume_path, uploaded_at, raw_text)
@@ -138,11 +149,11 @@ def upload_resume():
                 datetime.now(),
                 parsed_data['raw_text']
             ))
-            
+
             candidate_id = cursor.lastrowid
             conn.commit()
             conn.close()
-            
+
             return jsonify({
                 'success': True,
                 'candidate_id': candidate_id,
@@ -153,26 +164,27 @@ def upload_resume():
                     'education': parsed_data['education']
                 }
             })
-            
+
         except Exception as e:
             return jsonify({'error': f'Error processing resume: {str(e)}'}), 500
-    
+
     return jsonify({'error': 'Invalid file type'}), 400
+
 
 @app.route('/upload_job_description', methods=['POST'])
 def upload_job_description():
     try:
         data = request.get_json()
-        
+
         conn = sqlite3.connect('database/candidates.db')
         cursor = conn.cursor()
-        
+
         # Extract skills from job description
         jd_skills = skill_extractor.extract_all_skills(data['description'])
         all_jd_skills = []
         for category_skills in jd_skills.values():
             all_jd_skills.extend(category_skills)
-        
+
         cursor.execute('''
             INSERT INTO job_descriptions 
             (title, company, description, required_skills, required_experience, education_requirements, created_at)
@@ -186,34 +198,35 @@ def upload_job_description():
             json.dumps(data.get('education_requirements', [])),
             datetime.now()
         ))
-        
+
         job_id = cursor.lastrowid
         conn.commit()
         conn.close()
-        
+
         return jsonify({
             'success': True,
             'job_id': job_id,
             'extracted_skills': all_jd_skills
         })
-        
+
     except Exception as e:
         return jsonify({'error': f'Error processing job description: {str(e)}'}), 500
+
 
 @app.route('/match_candidates/<int:job_id>')
 def match_candidates(job_id):
     try:
         conn = sqlite3.connect(os.path.join('database', 'candidates.db'))
         cursor = conn.cursor()
-        
+
         # Get job description
         cursor.execute('SELECT * FROM job_descriptions WHERE id = ?', (job_id,))
         job_data = cursor.fetchone()
-        
+
         if not job_data:
             return jsonify({'error': 'Job description not found'}), 404
-        
-        # Convert job tuple to dictionary (FIXED)
+
+        # Convert job tuple to dictionary
         job_dict = {
             'id': job_data[0],
             'title': job_data[1],
@@ -223,15 +236,15 @@ def match_candidates(job_id):
             'required_experience': job_data[5],
             'education_requirements': json.loads(job_data[6]) if job_data[6] else []
         }
-        
+
         # Get all candidates
         cursor.execute('SELECT * FROM candidates')
         candidates = cursor.fetchall()
-        
+
         matched_candidates = []
-        
+
         for candidate in candidates:
-            # Convert candidate tuple to dictionary (FIXED)
+            # Convert candidate tuple to dictionary
             candidate_dict = {
                 'id': candidate[0],
                 'name': candidate[1],
@@ -243,10 +256,10 @@ def match_candidates(job_id):
                 'education': json.loads(candidate[7]) if candidate[7] else [],
                 'raw_text': candidate[10] if len(candidate) > 10 else ''
             }
-            
+
             # Calculate match score
             match_result = job_matcher.calculate_overall_match(candidate_dict, job_dict)
-            
+
             # Save match result to database
             cursor.execute('''
                 INSERT INTO matches 
@@ -254,7 +267,7 @@ def match_candidates(job_id):
                 semantic_score, matched_skills, missing_skills, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-                candidate[0],  # Use index instead of key
+                candidate[0],
                 job_id,
                 match_result['overall_score'],
                 match_result['skill_match']['score'] * 100,
@@ -265,40 +278,41 @@ def match_candidates(job_id):
                 json.dumps(match_result['skill_match']['missing_skills']),
                 datetime.now()
             ))
-            
+
             matched_candidates.append({
                 'candidate': candidate_dict,
                 'match_result': match_result
             })
-        
+
         # Sort by overall score
         matched_candidates.sort(key=lambda x: x['match_result']['overall_score'], reverse=True)
-        
+
         conn.commit()
         conn.close()
-        
+
         return jsonify({
             'success': True,
             'job': job_dict,
             'matches': matched_candidates
         })
-        
+
     except Exception as e:
         return jsonify({'error': f'Error matching candidates: {str(e)}'}), 500
-    
+
+
 @app.route('/dashboard')
 def dashboard():
     try:
         conn = sqlite3.connect(os.path.join('database', 'candidates.db'))
         cursor = conn.cursor()
-        
+
         # Get statistics
         cursor.execute('SELECT COUNT(*) FROM candidates')
         total_candidates = cursor.fetchone()[0]
-        
+
         cursor.execute('SELECT COUNT(*) FROM job_descriptions')
         total_jobs = cursor.fetchone()[0]
-        
+
         # Get recent matches
         cursor.execute('''
             SELECT m.*, c.name, c.email, j.title, j.company
@@ -309,28 +323,29 @@ def dashboard():
             LIMIT 10
         ''')
         recent_matches = cursor.fetchall()
-        
+
         conn.close()
-        
-        return render_template('dashboard.html', 
-                             total_candidates=total_candidates,
-                             total_jobs=total_jobs,
-                             recent_matches=recent_matches)
-        
+
+        return render_template('dashboard.html',
+                               total_candidates=total_candidates,
+                               total_jobs=total_jobs,
+                               recent_matches=recent_matches)
+
     except Exception as e:
         print(f"Dashboard error: {e}")
-        return render_template('dashboard.html', 
-                             total_candidates=0,
-                             total_jobs=0,
-                             recent_matches=[],
-                             error=str(e))
+        return render_template('dashboard.html',
+                               total_candidates=0,
+                               total_jobs=0,
+                               recent_matches=[],
+                               error=str(e))
+
 
 @app.route('/download_results/<int:job_id>')
 def download_results(job_id):
     try:
         conn = sqlite3.connect('database/candidates.db')
         cursor = conn.cursor()
-        
+
         cursor.execute('''
             SELECT c.name, c.email, c.phone, c.location, c.experience_years,
                    m.overall_score, m.skill_score, m.experience_score, m.education_score
@@ -339,43 +354,46 @@ def download_results(job_id):
             WHERE m.job_id = ?
             ORDER BY m.overall_score DESC
         ''', (job_id,))
-        
+
         results = cursor.fetchall()
         conn.close()
-        
+
         # Create DataFrame
         df = pd.DataFrame(results, columns=[
             'Name', 'Email', 'Phone', 'Location', 'Experience Years',
             'Overall Score', 'Skill Score', 'Experience Score', 'Education Score'
         ])
-        
+
         # Create CSV in memory
         output = io.StringIO()
         df.to_csv(output, index=False)
         output.seek(0)
-        
+
         # Create a BytesIO object for sending file
         mem = io.BytesIO()
         mem.write(output.getvalue().encode())
         mem.seek(0)
-        
+
         return send_file(
             mem,
             as_attachment=True,
             download_name=f'matching_results_job_{job_id}.csv',
             mimetype='text/csv'
         )
-        
+
     except Exception as e:
         return jsonify({'error': f'Error generating CSV: {str(e)}'}), 500
 
+
+# ------------------------
+# Entry Point
+# ------------------------
+# Ensure directories + DB are created both locally and on Vercel
+os.makedirs('uploads/resumes', exist_ok=True)
+os.makedirs('uploads/job_descriptions', exist_ok=True)
+os.makedirs('database', exist_ok=True)
+init_db()
+
+# Local run
 if __name__ == '__main__':
-    # Create necessary directories
-    os.makedirs('uploads/resumes', exist_ok=True)
-    os.makedirs('uploads/job_descriptions', exist_ok=True)
-    os.makedirs('database', exist_ok=True)
-    
-    # Initialize database
-    init_db()
-    
     app.run(debug=True)
